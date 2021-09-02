@@ -51,7 +51,7 @@ function initializeData(num)
 	t::UInt16 = (n >> 2) + 1
 	b::UInt16 = (n >> 2) + 1
 
-	students, teachers, boats = readNames("/Users/oskarthaeter/Dev/PycharmProjects/SailMatching/names.txt", n, t, b)
+	students, teachers, boats = readNames("names.txt", n, t, b)
 
 	pref_s_students = zeros(UInt16, (n, n))
 	pref_s_teachers = zeros(UInt16, (t, n))

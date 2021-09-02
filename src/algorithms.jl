@@ -28,7 +28,7 @@ function initial(population::Population)
 	return Chromosome(s_gene, t_gene)
 end
 
-function genetic(population::Population, generations=100, carry=0.1)
+function genetic(population::Population, generations=100, carry=0.25)
 	population.chromosomes[1] = initial(population)
 	println("Naive attempt: " * string(fitness(population, population.chromosomes[1])))
 	breadth = length(population.chromosomes)
@@ -41,52 +41,28 @@ function genetic(population::Population, generations=100, carry=0.1)
 	broadcast!(extract, fitnesses, selection)
 	iter = ProgressBar(1:generations)
 	for i in iter
-		population.chromosomes = reproduce(selection, UInt16(breadth), Float16(0.15), Float16(0.01))
+		population.chromosomes = reproduce(selection, UInt16(breadth), Float16(0.25))
 		selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(carry * breadth)]
 		broadcast!(extract, fitnesses, selection)
 		fmax = maximum(deepcopy(fitnesses))
-		favg = mean(deepcopy(fitnesses))
-		fmedian = round(median(deepcopy(fitnesses)))
-		set_description(iter, string("Fitness: max = " * string(fmax) * "  | mean = " * string(favg) * " | median = " * string(fmedian)))
+		favg = mean(fitnesses)
+		set_description(iter, string("Fitness: max = " * string(fmax) * "  | mean = " * string(favg)))
 	end
 	return selection[1]
 end
 
-"""function reproduce(carryover::Array{Any,1}, breadth::UInt16, mutations::Float16, mRate::Float16)
-	newGeneration = Array{Any,1}(undef, breadth)
-	for i = 1:2:breadth
-		parentA, parentB = sample(carryover, 2)
-		childA, childB = u_crossover(parentA, parentB)
-		if rand(0:1) < mutations
-			childA = mutate(childA, mRate)
-		end
-		if rand(0:1) < mutations
-			childB = mutate(childB, mRate)
-		end
-		newGeneration[i] = childA
-		newGeneration[i+1] = childB
-	end
-	return cat(carryover, newGeneration, dims=1)
-end"""
-
-function reproduce(carryover::Array{Any,1}, breadth::UInt16, mutations::Float16, mRate::Float16)
-	newGeneration = Array{Any,1}(undef, breadth)
-	solution_data = Vector{Vector{Any}}(undef, Threads.nthreads())
+function reproduce(carryover::Array{Chromosome,1}, breadth::UInt16, mRate::Float16)
+	solution_data = Vector{Vector{Chromosome}}(undef, Threads.nthreads())
 	Threads.@threads for k in 1:Threads.nthreads()
   		solution_data[k] = Chromosome[]
 	end
 	parentsA = sample(1:length(carryover), UInt16(round(breadth / 2)))
 	parentsB = sample(1:length(carryover), UInt16(round(breadth / 2)))
 	Threads.@threads for i = 1:UInt16(round(breadth / 2))
-		childA, childB = u_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
-		if rand(0:1) < mutations
-			childA = mutate(childA, mRate)
-		end
-		if rand(0:1) < mutations
-			childB = mutate(childB, mRate)
-		end
+		childA, childB = sp_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
+		mutate(childA, mRate)
+		mutate(childB, mRate)
 		push!(solution_data[Threads.threadid()], childA, childB)
 	end
-	newGeneration = vcat(solution_data...)
-	return cat(carryover, newGeneration, dims=1)
+	return cat(carryover, vcat(solution_data...), dims=1)
 end
