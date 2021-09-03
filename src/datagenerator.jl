@@ -47,6 +47,7 @@ function readNames(filename::String, n::UInt16, t::UInt16, b::UInt16)
 end
 
 function initializeData(num)
+	Random.seed!(1)
 	n::UInt16 = min(UInt16(num), 10000)
 	t::UInt16 = (n >> 2) + 1
 	b::UInt16 = (n >> 2) + 1

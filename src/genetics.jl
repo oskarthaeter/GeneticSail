@@ -18,7 +18,7 @@ mutable struct Population
 	chromosomes::Array{Chromosome,1}
 end
 
-function fitness(populus::Population, chrom::Chromosome)::UInt64
+function fitness(populus::Population, chrom::Chromosome)::UInt16
 	bonus = sum(chrom.s_gene)
 	if bonus > populus.n
 		return 0
@@ -52,7 +52,7 @@ function fitness(populus::Population, chrom::Chromosome)::UInt64
 	if maximum(temp_s[:, end]) > 1 || maximum(temp_t[:, end]) > 1
 		return 0
 	else
-		return bonus
+		return UInt16(bonus)
 	end
 end
 
@@ -109,4 +109,18 @@ function mutate(candidate::Chromosome, rate::Float16)
 	for p in posT
 		candidate.t_gene[p] = !candidate.t_gene[p]
 	end
+	return candidate
+end
+
+function vary(candidate::Chromosome)
+	posS = rand(1:UInt(size(candidate.s_gene)[1]), UInt(round(0.3 * size(candidate.s_gene)[1])))
+	A = rand(1:UInt(size(candidate.s_gene)[2]))
+	B = rand(1:UInt(size(candidate.s_gene)[2]))
+	for pS in posS
+		temp = candidate.s_gene[pS, A]
+		candidate.s_gene[pS, A] = candidate.s_gene[pS, B]
+		candidate.s_gene[pS, B] = temp
+	end
+
+	return candidate
 end

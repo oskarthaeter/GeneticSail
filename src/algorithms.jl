@@ -2,6 +2,7 @@ using Random
 using ProgressBars
 using Statistics
 using StatsBase
+using CodeTracking
 
 function initial(population::Population)
 	s_gene = falses(population.n, population.b)
@@ -29,6 +30,7 @@ function initial(population::Population)
 end
 
 function genetic(population::Population, generations=100, carry=0.25)
+	mRate = Float16(0.5)
 	population.chromosomes[1] = initial(population)
 	println("Naive attempt: " * string(fitness(population, population.chromosomes[1])))
 	breadth = length(population.chromosomes)
@@ -36,23 +38,27 @@ function genetic(population::Population, generations=100, carry=0.25)
 		population.chromosomes[i] = Chromosome(population.studentData.num, population.teacherData.num, population.boatData.num)
 	end
 	extract(c::Chromosome) = fitness(population, c)
-	selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(carry * breadth)]
-	fitnesses = Array{UInt64, 1}(undef, size(selection))
+	selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(round(carry * breadth))]
+	fitnesses = Array{UInt16, 1}(undef, size(selection))
+	fmax::Float64 = Float64(1.0)
+	favg::Float64 = Float64(0.0)
+	fmedian::Float64 = Float64(0.0)
 	broadcast!(extract, fitnesses, selection)
 	iter = ProgressBar(1:generations)
 	for i in iter
-		population.chromosomes = reproduce(selection, UInt16(breadth), Float16(0.25))
-		selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(carry * breadth)]
+		population.chromosomes = reproduce(selection, UInt16(breadth), isapprox(fmax, favg) ? x -> mutate(x, mRate) : x -> vary(x))
+		selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(round(carry * breadth))]
 		broadcast!(extract, fitnesses, selection)
-		fmax = maximum(deepcopy(fitnesses))
-		favg = mean(fitnesses)
-		set_description(iter, string("Fitness: max = " * string(fmax) * "  | mean = " * string(favg)))
+		fmax = Float64(maximum(fitnesses))
+		favg = Float64(mean(fitnesses))
+		fmedian = Float64(median(fitnesses))
+		set_description(iter, string("Fitness: max = " * string(fmax) * " | mean = " * string(favg) * " | median = " * string(fmedian)))
 	end
 	return selection[1]
 end
 
-function reproduce(carryover::Array{Chromosome,1}, breadth::UInt16, mRate::Float16)
-	solution_data = Vector{Vector{Chromosome}}(undef, Threads.nthreads())
+function reproduce(carryover::Array{Chromosome,1}, breadth::UInt16, func)
+	solution_data = Vector{Vector{Chromosome}}(undef, Threads.nthreads())	
 	Threads.@threads for k in 1:Threads.nthreads()
   		solution_data[k] = Chromosome[]
 	end
@@ -60,9 +66,7 @@ function reproduce(carryover::Array{Chromosome,1}, breadth::UInt16, mRate::Float
 	parentsB = sample(1:length(carryover), UInt16(round(breadth / 2)))
 	Threads.@threads for i = 1:UInt16(round(breadth / 2))
 		childA, childB = sp_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
-		mutate(childA, mRate)
-		mutate(childB, mRate)
-		push!(solution_data[Threads.threadid()], childA, childB)
+		push!(solution_data[Threads.threadid()], func(childA), func(childB))
 	end
 	return cat(carryover, vcat(solution_data...), dims=1)
 end
