@@ -2,7 +2,47 @@ using Random
 using ProgressBars
 using Statistics
 using StatsBase
-using CodeTracking
+
+function completeRandom(population::Population)
+	s_gene = falses(population.n, population.b)
+	t_gene = falses(population.t, population.b)
+	chrom = Chromosome(s_gene, t_gene)
+	fit = fitness(population, chrom)
+	iter = ProgressBar(1:2^(length(s_gene)))
+	for i in iter
+		s_temp = falses(population.n, population.b)
+		start = 1
+		finish = 8
+		temp_digits = digits(UInt8, i, base=256, pad=length(s_gene))
+		temp_gene = falses((8 * length(s_gene)))
+		for k in temp_digits
+			temp_gene[start:finish] .= [k & (0x1<<n) != 0 for n in 0:7]
+			start += 8
+			finish += 8
+		end
+		s_temp = deepcopy(reshape(temp_gene[1:length(s_gene)], (population.n, population.b)))
+		for j in 1:2^(length(t_gene))
+			t_temp = falses(population.t, population.b)
+			start = 1
+			finish = 8
+			temp_digits = digits(UInt8, j, base=256, pad=length(t_gene))
+			temp_gene = falses((8 * length(t_gene)))
+			for k in temp_digits
+				temp_gene[start:finish] .= [k & (0x1<<n) != 0 for n in 0:7]
+				start += 8
+				finish += 8
+			end
+			t_temp = deepcopy(reshape(temp_gene[1:length(t_gene)], (population.t, population.b)))
+			temp = Chromosome(s_temp, t_temp)
+			if fitness(population, temp) > fit
+				fit = fitness(population, temp)
+				chrom = deepcopy(temp)
+			end
+		end
+		set_description(iter, string("Fitness: " * string(fit)))
+	end
+	return chrom
+end
 
 function initial(population::Population)
 	s_gene = falses(population.n, population.b)

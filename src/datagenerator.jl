@@ -1,4 +1,3 @@
-
 using Random
 using LinearAlgebra
 
@@ -91,4 +90,3 @@ function initializeData(num)
 
 	return studentData::Students, teacherData::Teachers, boatData::Boats
 end
-

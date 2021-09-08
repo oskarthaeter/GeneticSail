@@ -27,7 +27,7 @@ function fitness(populus::Population, chrom::Chromosome)::UInt16
 	temp_t = zeros(UInt16, (populus.t, populus.b))
 	cumsum!(temp_s, chrom.s_gene, dims=2)
 	cumsum!(temp_t, chrom.t_gene, dims=2)
-	for i = 1:populus.b
+	@inbounds for i = 1:populus.b
 		s_aboard = sum(chrom.s_gene[:, i])
 		t_aboard = sum(chrom.t_gene[:, i])
 		if (s_aboard > populus.boatData.capacity_s[i] || t_aboard > populus.boatData.capacity_t[i])
@@ -38,12 +38,12 @@ function fitness(populus::Population, chrom::Chromosome)::UInt16
 		elseif (s_aboard == 0 || t_aboard < populus.boatData.min_t[i])
 			return 0
 		end
-		for j = 1:populus.n
+		@inbounds for j = 1:populus.n
 			if chrom.s_gene[j, i]
 				bonus += dot(populus.studentData.pref_s_students[:, j], chrom.s_gene[:, i]) + dot(populus.studentData.pref_s_teachers[:, j], chrom.t_gene[:, i]) + populus.studentData.pref_s_boats[i, j]
 			end
 		end
-		for k = 1:populus.t
+		@inbounds for k = 1:populus.t
 			if chrom.t_gene[k, i]
 				bonus += dot(populus.teacherData.pref_t_students[:, k], chrom.s_gene[:, i]) + dot(populus.teacherData.pref_t_teachers[:, k], chrom.t_gene[:, i]) + populus.teacherData.pref_t_boats[i, k]
 			end
@@ -72,7 +72,7 @@ function u_crossover(parentA::Chromosome, parentB::Chromosome)
 	childA_t = similar(parentA.t_gene)
 	childB_t = similar(parentA.t_gene)
 	xchS = rand(Bool, size(parentA.s_gene))
-	for i in eachindex(parentA.s_gene)
+	@inbounds for i in eachindex(parentA.s_gene)
 		if xchS[i]
 			childA_s[i] = parentB.s_gene[i]
 			childB_s[i] = parentA.s_gene[i]
@@ -83,7 +83,7 @@ function u_crossover(parentA::Chromosome, parentB::Chromosome)
 	end
 	
 	xchT = rand(Bool, size(parentA.t_gene))
-	for i in eachindex(parentA.t_gene)
+	@inbounds for i in eachindex(parentA.t_gene)
 		if xchT[i]
 			childA_t[i] = parentB.t_gene[i]
 			childB_t[i] = parentA.t_gene[i]
@@ -102,11 +102,11 @@ function mutate(candidate::Chromosome, rate::Float16)
 	posS = rand(1:s, UInt(round((rate * s))))
 	posT = rand(1:t, UInt(round((rate * t))))
 
-	for p in posS
+	@inbounds for p in posS
 		candidate.s_gene[p] = !candidate.s_gene[p]
 	end
 
-	for p in posT
+	@inbounds for p in posT
 		candidate.t_gene[p] = !candidate.t_gene[p]
 	end
 	return candidate
@@ -116,11 +116,8 @@ function vary(candidate::Chromosome)
 	posS = rand(1:UInt(size(candidate.s_gene)[1]), UInt(round(0.3 * size(candidate.s_gene)[1])))
 	A = rand(1:UInt(size(candidate.s_gene)[2]))
 	B = rand(1:UInt(size(candidate.s_gene)[2]))
-	for pS in posS
-		temp = candidate.s_gene[pS, A]
-		candidate.s_gene[pS, A] = candidate.s_gene[pS, B]
-		candidate.s_gene[pS, B] = temp
+	@inbounds for pS in posS
+		candidate.s_gene[pS, A], candidate.s_gene[pS, B] = candidate.s_gene[pS, B], candidate.s_gene[pS, A]
 	end
-
 	return candidate
 end
