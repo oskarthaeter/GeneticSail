@@ -8,50 +8,44 @@ struct Chromosome
 	Chromosome(x::UInt16, y::UInt16, b::UInt16) = new(bitrand(x, b), bitrand(y, b))
 end
 
-mutable struct Population
+struct Population
 	n::UInt16
 	t::UInt16
 	b::UInt16
 	studentData::Students
 	teacherData::Teachers
 	boatData::Boats
-	chromosomes::Array{Chromosome,1}
 end
 
-function fitness(populus::Population, chrom::Chromosome)::UInt16
-	bonus = sum(chrom.s_gene)
-	if bonus > populus.n
-		return 0
-	end
+function feasible(populus::Population, chrom::Chromosome)::Bool
 	temp_s = zeros(UInt16, (populus.n, populus.b))
 	temp_t = zeros(UInt16, (populus.t, populus.b))
 	cumsum!(temp_s, chrom.s_gene, dims=2)
 	cumsum!(temp_t, chrom.t_gene, dims=2)
-	@inbounds for i = 1:populus.b
-		s_aboard = sum(chrom.s_gene[:, i])
-		t_aboard = sum(chrom.t_gene[:, i])
-		if (s_aboard > populus.boatData.capacity_s[i] || t_aboard > populus.boatData.capacity_t[i])
-			return 0
-		end
-		if (s_aboard == 0 && t_aboard == 0)
-			bonus += 10
-		elseif (s_aboard == 0 || t_aboard < populus.boatData.min_t[i])
-			return 0
-		end
-		@inbounds for j = 1:populus.n
-			if chrom.s_gene[j, i]
+	overlapped = maximum(temp_s[:, end]) > 1 || maximum(temp_t[:, end]) > 1
+	temp_s = zeros(UInt16, (populus.n, populus.b))
+	temp_t = zeros(UInt16, (populus.t, populus.b))
+	cumsum!(temp_s, chrom.s_gene, dims=1)
+	cumsum!(temp_t, chrom.t_gene, dims=1)
+	overCapacityS = any(map(x -> x[2] > populus.boatData.capacity_s[x[1]], enumerate(temp_s[end, :])))
+	overCapacityT = any(map(x -> x[2] > populus.boatData.capacity_t[x[1]], enumerate(deepcopy(temp_t[end, :]))))
+	tooFewTeachers = any(map(x -> x[2] < populus.boatData.min_t[x[1]], enumerate(temp_t[end, :])))
+	return (!overlapped) && (!overCapacityS) && (!overCapacityT) && (!tooFewTeachers)
+end
+
+function fitness(populus::Population, chrom::Chromosome)::UInt16
+	if (!feasible(populus, chrom)) 
+		return 0
+	else
+		bonus = sum(chrom.s_gene)
+		@inbounds for i = 1:populus.b
+			@inbounds for j = findall(chrom.s_gene[:, i])
 				bonus += dot(populus.studentData.pref_s_students[:, j], chrom.s_gene[:, i]) + dot(populus.studentData.pref_s_teachers[:, j], chrom.t_gene[:, i]) + populus.studentData.pref_s_boats[i, j]
 			end
-		end
-		@inbounds for k = 1:populus.t
-			if chrom.t_gene[k, i]
+			@inbounds for k = findall(chrom.t_gene[:, i])
 				bonus += dot(populus.teacherData.pref_t_students[:, k], chrom.s_gene[:, i]) + dot(populus.teacherData.pref_t_teachers[:, k], chrom.t_gene[:, i]) + populus.teacherData.pref_t_boats[i, k]
 			end
 		end
-	end
-	if maximum(temp_s[:, end]) > 1 || maximum(temp_t[:, end]) > 1
-		return 0
-	else
 		return UInt16(bonus)
 	end
 end
@@ -112,12 +106,18 @@ function mutate(candidate::Chromosome, rate::Float16)
 	return candidate
 end
 
-function vary(candidate::Chromosome)
-	posS = rand(1:UInt(size(candidate.s_gene)[1]), UInt(round(0.3 * size(candidate.s_gene)[1])))
+function vary(candidate::Chromosome, mRate)
+	posS = rand(1:UInt(size(candidate.s_gene)[1]), UInt(round(mRate * size(candidate.s_gene)[1])))
 	A = rand(1:UInt(size(candidate.s_gene)[2]))
 	B = rand(1:UInt(size(candidate.s_gene)[2]))
 	@inbounds for pS in posS
 		candidate.s_gene[pS, A], candidate.s_gene[pS, B] = candidate.s_gene[pS, B], candidate.s_gene[pS, A]
+	end
+	posT = rand(1:UInt(size(candidate.t_gene)[1]), UInt(round(mRate * size(candidate.t_gene)[1])))
+	C = rand(1:UInt(size(candidate.t_gene)[2]))
+	D = rand(1:UInt(size(candidate.t_gene)[2]))
+	@inbounds for pT in posT
+		candidate.t_gene[pT, C], candidate.t_gene[pT, D] = candidate.t_gene[pT, D], candidate.t_gene[pT, C]
 	end
 	return candidate
 end

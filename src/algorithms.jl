@@ -2,8 +2,12 @@ using Random
 using ProgressBars
 using Statistics
 using StatsBase
+using Plots
 
-function completeRandom(population::Population)
+function complete(population::Population)
+	plot_fit = []
+	plot_x = []
+	plot_y = []
 	s_gene = falses(population.n, population.b)
 	t_gene = falses(population.t, population.b)
 	chrom = Chromosome(s_gene, t_gene)
@@ -34,13 +38,18 @@ function completeRandom(population::Population)
 			end
 			t_temp = deepcopy(reshape(temp_gene[1:length(t_gene)], (population.t, population.b)))
 			temp = Chromosome(s_temp, t_temp)
-			if fitness(population, temp) > fit
-				fit = fitness(population, temp)
+			temp_fit = fitness(population, temp)
+			push!(plot_fit, temp_fit)
+			push!(plot_x, i)
+			push!(plot_y, j)
+			if temp_fit > fit
+				fit = temp_fit
 				chrom = deepcopy(temp)
 			end
 		end
 		set_description(iter, string("Fitness: " * string(fit)))
 	end
+	display(plot3d(plot_x, plot_y, plot_fit))
 	return chrom
 end
 
@@ -69,44 +78,48 @@ function initial(population::Population)
 	return Chromosome(s_gene, t_gene)
 end
 
-function genetic(population::Population, generations=100, carry=0.25)
-	mRate = Float16(0.5)
-	population.chromosomes[1] = initial(population)
-	println("Naive attempt: " * string(fitness(population, population.chromosomes[1])))
-	breadth = length(population.chromosomes)
+function parallelGenetic(population::Population, generations, breadth, carry)
+	input_data = fill(population, Threads.nthreads())
+	solution_data = Vector{Chromosome}(undef, Threads.nthreads())
+	perIteration = UInt(floor(generations / ceil(Threads.nthreads() / 2)))
+	Threads.@threads for i in 1:Threads.nthreads()
+		solution_data[i] = genetic(input_data[i], perIteration, breadth, carry)
+  	end
+	return partialsort!(solution_data, 1, by=x -> fitness(population, x), rev=true)
+end
+
+function genetic(population::Population, generations, breadth, carry)
+	mRate = Float16(0.1)
+	
+	pool = Array{Chromosome}(undef, breadth)
+	pool[1] = initial(population)
 	for i = 2:breadth
-		population.chromosomes[i] = Chromosome(population.studentData.num, population.teacherData.num, population.boatData.num)
+		pool[i] = Chromosome(population.studentData.num, population.teacherData.num, population.boatData.num)
 	end
+
 	extract(c::Chromosome) = fitness(population, c)
-	selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(round(carry * breadth))]
+	selection::Array{Chromosome,1} = sort(pool, by=extract, rev=true)[1:UInt(round(carry * breadth))]
 	fitnesses = Array{UInt16, 1}(undef, size(selection))
 	fmax::Float64 = Float64(1.0)
-	favg::Float64 = Float64(0.0)
-	fmedian::Float64 = Float64(0.0)
 	broadcast!(extract, fitnesses, selection)
-	iter = ProgressBar(1:generations)
-	for i in iter
-		population.chromosomes = reproduce(selection, UInt16(breadth), isapprox(fmax, favg) ? x -> mutate(x, mRate) : x -> vary(x))
-		selection = sort(population.chromosomes, by=x::Chromosome -> fitness(population, x), rev=true)[1:UInt(round(carry * breadth))]
-		broadcast!(extract, fitnesses, selection)
+	func = x -> vary(x, mRate)
+	for i in 1:generations
+		pool = reproduce(selection, UInt16(breadth), func)
+		selection = sort(pool, by=extract, rev=true)[1:UInt(round(carry * breadth))]
+		map!(extract, fitnesses, selection)
+
 		fmax = Float64(maximum(fitnesses))
-		favg = Float64(mean(fitnesses))
-		fmedian = Float64(median(fitnesses))
-		set_description(iter, string("Fitness: max = " * string(fmax) * " | mean = " * string(favg) * " | median = " * string(fmedian)))
-	end
+		end
 	return selection[1]
 end
 
 function reproduce(carryover::Array{Chromosome,1}, breadth::UInt16, func)
-	solution_data = Vector{Vector{Chromosome}}(undef, Threads.nthreads())	
-	Threads.@threads for k in 1:Threads.nthreads()
-  		solution_data[k] = Chromosome[]
+	solution_data = []
+	parentsA = sample(1:length(carryover), UInt16(round((breadth - length(carryover)) / 2)))
+	parentsB = sample(1:length(carryover), UInt16(round((breadth - length(carryover)) / 2)))
+	for i = 1:UInt16(round((breadth - length(carryover)) / 2))
+		childA, childB = u_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
+		push!(solution_data, func(childA), func(childB))
 	end
-	parentsA = sample(1:length(carryover), UInt16(round(breadth / 2)))
-	parentsB = sample(1:length(carryover), UInt16(round(breadth / 2)))
-	Threads.@threads for i = 1:UInt16(round(breadth / 2))
-		childA, childB = sp_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
-		push!(solution_data[Threads.threadid()], func(childA), func(childB))
-	end
-	return cat(carryover, vcat(solution_data...), dims=1)
+	return cat(carryover, solution_data, dims=1)
 end

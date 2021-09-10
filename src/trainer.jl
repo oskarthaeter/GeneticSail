@@ -2,13 +2,14 @@ module trainer
 include("datagenerator.jl")
 include("genetics.jl")
 include("algorithms.jl")
+plotlyjs()
 
-studentData, teacherData, boatData = initializeData(10)
+studentData, teacherData, boatData = initializeData(100)
 
-population = Population(studentData.num, teacherData.num, boatData.num, studentData, teacherData, boatData, Array{Chromosome,1}(undef, 2000))
+population = Population(studentData.num, teacherData.num, boatData.num, studentData, teacherData, boatData)
 println(string("Using " * string(Threads.nthreads()) * " threads"))
-best = genetic(population, 500, 0.3)
-# best = completeRandom(population)
+@time best = parallelGenetic(population, 500, 10, 0.2)
+#best = complete(population)
 println(fitness(population, best))
-println(best)
+#println(best)
 end
