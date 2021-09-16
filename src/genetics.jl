@@ -1,10 +1,10 @@
 using Random, LinearAlgebra
 
 struct Chromosome
-	s_gene::BitArray
-	t_gene::BitArray
-	Chromosome(s::BitArray, t::BitArray) = new(s, t)
-	Chromosome(x::UInt16, y::UInt16, b::UInt16) = new(bitrand(x, b), bitrand(y, b))
+	s_gene::Array{Bool, 2}
+	t_gene::Array{Bool, 2}
+	Chromosome(s::Array{Bool, 2}, t::Array{Bool, 2}) = new(s, t)
+	Chromosome(x::UInt16, y::UInt16, b::UInt16) = new(rand(Bool, x, b), rand(Bool, y, b))
 end
 
 struct Population
@@ -52,11 +52,11 @@ end
 function sp_crossover(parentA::Chromosome, parentB::Chromosome)
 	posS = rand(1:length(parentA.s_gene))
 	posT = rand(1:length(parentA.t_gene))
-	childA_s = reshape(cat(deepcopy(parentA.s_gene[:][1:posS]), deepcopy(parentB.s_gene[:][posS+1:end]), dims=1), size(parentA.s_gene))
-	childB_s = reshape(cat(deepcopy(parentB.s_gene[:][1:posS]), deepcopy(parentA.s_gene[:][posS+1:end]), dims=1), size(parentA.s_gene))
-	childA_t = reshape(cat(deepcopy(parentA.t_gene[:][1:posT]), deepcopy(parentB.t_gene[:][posT+1:end]), dims=1), size(parentA.t_gene))
-	childB_t = reshape(cat(deepcopy(parentB.t_gene[:][1:posT]), deepcopy(parentA.t_gene[:][posT+1:end]), dims=1), size(parentA.t_gene))
-	return Chromosome(childA_s, childA_t), Chromosome(childB_s, childB_t)
+	childA_s = reshape(cat(parentA.s_gene[:][1:posS], parentB.s_gene[:][posS+1:end], dims=1), size(parentA.s_gene))
+	childB_s = reshape(cat(parentB.s_gene[:][1:posS], parentA.s_gene[:][posS+1:end], dims=1), size(parentA.s_gene))
+	childA_t = reshape(cat(parentA.t_gene[:][1:posT], parentB.t_gene[:][posT+1:end], dims=1), size(parentA.t_gene))
+	childB_t = reshape(cat(parentB.t_gene[:][1:posT], parentA.t_gene[:][posT+1:end], dims=1), size(parentA.t_gene))
+	return Chromosome(deepcopy(childA_s), deepcopy(childA_t)), Chromosome(deepcopy(childB_s), deepcopy(childB_t))
 end
 
 function u_crossover(parentA::Chromosome, parentB::Chromosome)
