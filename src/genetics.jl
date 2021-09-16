@@ -1,4 +1,3 @@
-
 using Random, LinearAlgebra
 
 struct Chromosome
