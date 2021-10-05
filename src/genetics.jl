@@ -11,7 +11,7 @@ end
 struct Population
 	n::UInt16
 	t::UInt16
-	b::UInt16
+	b::UInt8
 	studentData::Students
 	teacherData::Teachers
 	boatData::Boats

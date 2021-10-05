@@ -1,15 +1,15 @@
 module trainer
 include("datagenerator.jl")
 include("genetics.jl")
+include("assignment.jl")
 include("algorithms.jl")
-plotlyjs()
+using BenchmarkTools
 
-studentData, teacherData, boatData = initializeData(100)
+population = initializeData(10)
 
-population = Population(studentData.num, teacherData.num, boatData.num, studentData, teacherData, boatData)
 println(string("Using " * string(Threads.nthreads()) * " threads"))
-@time best = parallelGenetic(population, 500, 10, 0.2)
-#best = complete(population)
+@time best = parallelGeneticNum(population, 20000, 200, 0.25)
+
 println(fitness(population, best))
-#println(best)
+println(best)
 end

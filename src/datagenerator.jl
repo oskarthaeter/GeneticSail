@@ -18,14 +18,14 @@ struct Teachers
 end
 
 struct Boats
-	num::UInt16
+	num::UInt8
 	names::Array{String,1}
 	capacity_s::Array{UInt8,1}
 	capacity_t::Array{UInt8,1}
 	min_t::Array{UInt8,1}
 end
 
-function readNames(filename::String, n::UInt16, t::UInt16, b::UInt16)
+function readNames(filename::String, n::UInt16, t::UInt16, b::UInt8)
 	students = Array{String,1}(undef, n)
 	teachers = Array{String,1}(undef, t)
 	boats = Array{String,1}(undef, b)
@@ -45,11 +45,11 @@ function readNames(filename::String, n::UInt16, t::UInt16, b::UInt16)
 	return students, teachers, boats
 end
 
-function initializeData(num)
+function initializeData(num)::Population
 	Random.seed!(1)
 	n::UInt16 = min(UInt16(num), 10000)
 	t::UInt16 = (n >> 2) + 1
-	b::UInt16 = (n >> 2) + 1
+	b::UInt8 = (n >> 2) + 1
 
 	students, teachers, boats = readNames("names.txt", n, t, b)
 
@@ -88,5 +88,5 @@ function initializeData(num)
 	teacherData = Teachers(t, teachers, pref_t_students, pref_t_teachers, pref_t_boats)
 	boatData = Boats(b, boats, capacity_s, capacity_t, min_t)
 
-	return studentData::Students, teacherData::Teachers, boatData::Boats
+	return Population(n, t, b, studentData, teacherData, boatData)
 end
