@@ -7,15 +7,15 @@ using Combinatorics
 function completeBit(population::Population)
 	s_gene = falses(population.n, population.b)
 	t_gene = falses(population.t, population.b)
-	chrom = Chromosome(s_gene, t_gene)
+chrom = Chromosome(s_gene, t_gene)
 	fit = fitness(population, chrom)
 	iter = ProgressBar(1:2^(length(s_gene)))
 	for i in iter
-		s_temp = falses(population.n, population.b)
+		s_temp = zeros(Bool, (population.n, population.b))
 		start = 1
 		finish = 8
 		temp_digits = digits(UInt8, i, base=256, pad=length(s_gene))
-		temp_gene = falses((8 * length(s_gene)))
+		temp_gene = zeros(Bool, (8 * length(s_gene)))
 		for k in temp_digits
 			temp_gene[start:finish] .= [k & (0x1<<n) != 0 for n in 0:7]
 			start += 8
@@ -23,11 +23,11 @@ function completeBit(population::Population)
 		end
 		s_temp = deepcopy(reshape(temp_gene[1:length(s_gene)], (population.n, population.b)))
 		for j in 1:2^(length(t_gene))
-			t_temp = falses(population.t, population.b)
+			t_temp = zeros(Bool, (population.t, population.b))
 			start = 1
 			finish = 8
 			temp_digits = digits(UInt8, j, base=256, pad=length(t_gene))
-			temp_gene = falses((8 * length(t_gene)))
+			temp_gene = zeros(Bool, (8 * length(t_gene)))
 			for k in temp_digits
 				temp_gene[start:finish] .= [k & (0x1<<n) != 0 for n in 0:7]
 				start += 8
@@ -111,7 +111,7 @@ function reproduce(carryover::Array{Chromosome,1}, breadth::UInt16, func)
 	parentsA = sample(1:length(carryover), UInt16(round((breadth - length(carryover)) / 2)))
 	parentsB = sample(1:length(carryover), UInt16(round((breadth - length(carryover)) / 2)))
 	for i = 1:UInt16(round((breadth - length(carryover)) / 2))
-		childA, childB = u_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
+		childA, childB = sp_crossover(carryover[parentsA[i]], carryover[parentsB[i]])
 		push!(solution_data, func(childA), func(childB))
 	end
 	return cat(carryover, solution_data, dims=1)
